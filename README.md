@@ -88,9 +88,6 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Install   # + installe et 
 | 🌐 **Aucune connexion réseau** | L'application ne contacte aucun serveur : pas de télémétrie, pas de mise à jour automatique, pas de publicité. |
 | 👤 **Aucune donnée personnelle collectée** | Seul le nom du dernier réseau choisi est enregistré localement (`%APPDATA%\WifiAntennes\reseau.txt`). Les positions notées restent en mémoire, sauf si tu les exportes toi-même en CSV. |
 | 🛡️ **Droits standard** | Pas de droits administrateur demandés, aucune modification de la configuration Wi-Fi ou du système : lecture seule. |
-| 🧩 **Anti DLL hijacking** | Les DLL natives ne sont chargées que depuis `System32` (jamais depuis le dossier de l'exe, par ex. *Téléchargements*). |
-| 📄 **Export CSV protégé** | Les noms de réseaux (choisis par n'importe qui à portée) sont neutralisés contre l'injection de formules Excel. |
-| 🧱 **Lecture mémoire bornée** | Les données renvoyées par l'API Wi-Fi sont lues sans jamais dépasser la taille annoncée par Windows. |
 | 📦 **Zéro dépendance** | Un seul fichier source, compilable avec le compilateur intégré à Windows : rien à télécharger, rien à faire confiance en plus. |
 
 **Vérifier l'exe téléchargé** : compare son empreinte avec celle indiquée dans la release :
