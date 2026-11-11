@@ -17,8 +17,8 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyTitle("Wi-Fi Antennes")]
 [assembly: System.Reflection.AssemblyProduct("Wi-Fi Antennes")]
 [assembly: System.Reflection.AssemblyDescription("Aide au placement des antennes Wi-Fi")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.1.0.0")]
 // Securite : les DLL natives (wlanapi.dll) ne sont chargees que depuis System32,
 // jamais depuis le dossier de l'exe ou le dossier courant (anti DLL hijacking).
 [assembly: DefaultDllImportSearchPaths(DllImportSearchPath.System32)]
@@ -180,7 +180,8 @@ namespace WifiAntennes
 
         public const string GWifi = "", GStar = "", GPin = "", GEdit = "",
             GRefresh = "", GVolume = "", GPinTop = "", GSave = "",
-            GUp = "", GDown = "", GFlat = "";
+            GUp = "", GDown = "", GFlat = "",
+            GTest = "", GPlay = "", GSkip = "", GAdd = "", GCheck = "", GCancel = "";
 
         public static void Init()
         {
@@ -496,8 +497,9 @@ namespace WifiAntennes
     class IconButton : Control
     {
         public string Glyph;
-        public bool Toggle, Checked;
+        public bool Toggle, Checked, Primary;
         bool hover;
+        protected override void OnEnabledChanged(EventArgs e) { Invalidate(); base.OnEnabledChanged(e); }
 
         public IconButton(string glyph, string text)
         {
@@ -519,8 +521,10 @@ namespace WifiAntennes
             g.Clear(Parent != null ? Parent.BackColor : Theme.Bg);
             float k = g.DpiX / 96f;
             bool on = Toggle && Checked;
-            Color bg = on ? Color.FromArgb(58, Theme.Accent) : (hover ? Theme.Hover : Theme.Card);
-            Color bd = on ? Theme.Accent : Theme.Border;
+            Color bg = Primary ? (hover ? Color.FromArgb(118, 186, 255) : Theme.Accent)
+                               : (on ? Color.FromArgb(58, Theme.Accent) : (hover ? Theme.Hover : Theme.Card));
+            Color bd = (on || Primary) ? Theme.Accent : Theme.Border;
+            if (!Enabled) { bg = Theme.Card; bd = Theme.Border; }
             using (var path = Theme.Round(new RectangleF(0, 0, Width - 1, Height - 1), 7 * k))
             using (var b = new SolidBrush(bg))
             using (var p = new Pen(bd))
@@ -528,9 +532,10 @@ namespace WifiAntennes
                 g.FillPath(b, path);
                 g.DrawPath(p, path);
             }
-            Color fgc = on ? Color.White : (Toggle ? Theme.Muted : Theme.Fg);
+            Color fgc = (on || Primary) ? Color.White : (Toggle ? Theme.Muted : Theme.Fg);
+            if (!Enabled) fgc = Color.FromArgb(95, 95, 105);
             using (var fi = Theme.Icon(11f))
-            using (var b = new SolidBrush(on ? Theme.Accent : fgc))
+            using (var b = new SolidBrush((on && !Primary && Enabled) ? Theme.Accent : fgc))
             {
                 var sz = g.MeasureString(Glyph, fi);
                 g.DrawString(Glyph, fi, b, 10 * k, (Height - sz.Height) / 2 + 1 * k);
@@ -604,7 +609,13 @@ namespace WifiAntennes
         Dial dial; Graph graph; ApList aps; Card cardAps;
         Label lblTrendIcon, lblTrend, lblBest, lblRef, lblStatus, lblMarksEmpty;
         ComboBox cbSsid; ListBox lbMarks;
-        IconButton btnRef, btnMark, btnExport, btnReset, btnSound, btnTop;
+        IconButton btnRef, btnMark, btnExport, btnReset, btnSound, btnTop, btnTest, btnTips;
+        OrientationTest testForm;
+        TipsForm tipsForm;
+
+        // Diffuse chaque scan aux fenetres annexes (test d'orientation)
+        public event Action<ScanResult> Scanned;
+        public string SelectedSsid { get { return selectedSsid; } }
 
         readonly List<double> raw = new List<double>();
         readonly List<Mark> marks = new List<Mark>();
@@ -644,21 +655,28 @@ namespace WifiAntennes
         {
             // En-tete
             L(this, Theme.GWifi, 18, 12, 40, 36, Theme.Icon(20f), Theme.Accent);
-            L(this, "Wi-Fi Antennes", 56, 6, 300, 30, Theme.Ui(15f, FontStyle.Bold), Theme.Fg);
-            L(this, "Bouge les antennes doucement et attends ~5 s par position", 58, 34, 420, 20, Theme.Ui(9f), Theme.Muted);
-            L(this, "Réseau", 560, 21, 56, 22, Theme.Ui(9.5f), Theme.Muted);
+            L(this, "Wi-Fi Antennes", 56, 6, 236, 30, Theme.Ui(15f, FontStyle.Bold), Theme.Fg);
+            L(this, "Bouge doucement, ~5 s par position", 58, 34, 240, 20, Theme.Ui(9f), Theme.Muted);
+            L(this, "Réseau", 300, 21, 54, 22, Theme.Ui(9.5f), Theme.Muted);
             cbSsid = new ComboBox
             {
                 DropDownStyle = ComboBoxStyle.DropDownList, FlatStyle = FlatStyle.Flat,
                 BackColor = Theme.Card, ForeColor = Theme.Fg, Font = Theme.Ui(10f),
-                Location = P(620, 17), Size = Z(300, 28)
+                Location = P(356, 17), Size = Z(250, 28)
             };
+            btnTips = new IconButton("", "Conseils") { Location = P(616, 14), Size = Z(126, 34) };
+            btnTips.Click += (s, e) => OpenTips();
+            Controls.Add(btnTips);
+            btnTest = new IconButton(Theme.GTest, "Test d'orientation") { Location = P(752, 14), Size = Z(168, 34), Primary = true };
+            btnTest.Click += (s, e) => OpenTest();
+            Controls.Add(btnTest);
             cbSsid.SelectedIndexChanged += (s, e) =>
             {
                 if (updatingCombo) return;
                 selectedSsid = cbSsid.SelectedItem as string;
                 SaveSsid(selectedSsid);
                 ResetStats();
+                if (testForm != null && !testForm.IsDisposed) testForm.ResetAll("Réseau changé : mesures du test effacées.");
             };
             Controls.Add(cbSsid);
 
@@ -712,7 +730,12 @@ namespace WifiAntennes
             btnMark.Click += (s, e) => AddMark();
             btnExport.Click += (s, e) => Export();
             btnReset.Click += (s, e) => ResetStats();
-            btnTop.Click += (s, e) => TopMost = btnTop.Checked;
+            btnTop.Click += (s, e) =>
+            {
+                TopMost = btnTop.Checked;
+                if (testForm != null && !testForm.IsDisposed) testForm.TopMost = TopMost;
+                if (tipsForm != null && !tipsForm.IsDisposed) tipsForm.TopMost = TopMost;
+            };
 
             lblStatus = L(this, "Démarrage…", 20, 530, 900, 20, Theme.Ui(8.5f), Theme.Muted);
         }
@@ -792,6 +815,8 @@ namespace WifiAntennes
             if (r.Error != null) { lblStatus.Text = r.Error; lblStatus.ForeColor = Theme.Bad; return; }
             lblStatus.ForeColor = Theme.Muted;
             UpdateSsids(r);
+            var handler = Scanned;
+            if (handler != null) handler(r);
 
             var nets = r.Networks.Where(n => n.Ssid == selectedSsid).OrderByDescending(n => n.Rssi).ToList();
             aps.Items = nets;
@@ -917,11 +942,29 @@ namespace WifiAntennes
 
         // Securite : un nom de reseau Wi-Fi est choisi par n'importe qui a portee.
         // Neutralise l'injection de formules a l'ouverture dans Excel (=, +, -, @) et echappe guillemets / retours a la ligne.
-        static string CsvText(string s)
+        internal static string CsvText(string s)
         {
             s = s ?? "";
             if (s.Length > 0 && "=+-@\t\r".IndexOf(s[0]) >= 0) s = "'" + s;
             return "\"" + s.Replace("\"", "\"\"").Replace("\r", " ").Replace("\n", " ") + "\"";
+        }
+
+        internal void OpenTips()
+        {
+            if (tipsForm == null || tipsForm.IsDisposed) tipsForm = new TipsForm(this);
+            tipsForm.TopMost = TopMost;
+            if (!tipsForm.Visible) tipsForm.Show(this);
+            tipsForm.BringToFront();
+            tipsForm.Activate();
+        }
+
+        internal void OpenTest()
+        {
+            if (testForm == null || testForm.IsDisposed) testForm = new OrientationTest(this);
+            testForm.TopMost = TopMost;   // sinon la fenetre « premier plan » principale la recouvre
+            if (!testForm.Visible) testForm.Show(this);
+            testForm.BringToFront();
+            testForm.Activate();
         }
 
         void Export()
@@ -950,15 +993,35 @@ namespace WifiAntennes
     {
         [DllImport("kernel32.dll", SetLastError = true)]
         static extern bool SetDefaultDllDirectories(uint flags);
+        [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+        [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
 
         [STAThread]
         static void Main(string[] args)
         {
             // Securite : toute DLL chargee ensuite ne peut venir que de System32 (LOAD_LIBRARY_SEARCH_SYSTEM32)
             try { SetDefaultDllDirectories(0x00000800); } catch { }
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new MainForm(args.Length > 0 ? args[0] : null));
+
+            // Une seule instance : si le programme tourne deja, on ramene sa fenetre au premier plan
+            bool first;
+            using (var mutex = new Mutex(true, "Local\\WifiAntennes.SingleInstance", out first))
+            {
+                if (!first)
+                {
+                    var me = System.Diagnostics.Process.GetCurrentProcess();
+                    foreach (var p in System.Diagnostics.Process.GetProcessesByName(me.ProcessName))
+                        if (p.Id != me.Id && p.MainWindowHandle != IntPtr.Zero)
+                        {
+                            ShowWindow(p.MainWindowHandle, 9);   // SW_RESTORE
+                            SetForegroundWindow(p.MainWindowHandle);
+                            break;
+                        }
+                    return;
+                }
+                Application.EnableVisualStyles();
+                Application.SetCompatibleTextRenderingDefault(false);
+                Application.Run(new MainForm(args.Length > 0 ? args[0] : null));
+            }
         }
     }
 }
