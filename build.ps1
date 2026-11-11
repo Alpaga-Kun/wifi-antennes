@@ -76,8 +76,8 @@ if (-not (Test-Path $csc)) { throw '.NET Framework 4.x compiler (csc.exe) not fo
 $exe = Join-Path $dist 'WifiAntennes.exe'
 $cscArgs = @('/nologo', '/target:winexe', '/optimize+', '/codepage:65001', '/platform:anycpu',
     "/out:$exe", "/win32icon:$icoPath", "/win32manifest:$(Join-Path $src 'app.manifest')",
-    '/r:System.dll', '/r:System.Core.dll', '/r:System.Drawing.dll', '/r:System.Windows.Forms.dll',
-    (Join-Path $src 'WifiAntennes.cs'))
+    '/r:System.dll', '/r:System.Core.dll', '/r:System.Drawing.dll', '/r:System.Windows.Forms.dll')
+$cscArgs += @(Get-ChildItem $src -Filter '*.cs' | Sort-Object Name | ForEach-Object { $_.FullName })
 & $csc @cscArgs
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed (code $LASTEXITCODE)." }
 Write-Host "Built: $exe" -ForegroundColor Green

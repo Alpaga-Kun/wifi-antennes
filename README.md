@@ -27,6 +27,8 @@ Tu as une carte Wi-Fi avec des antennes à l'arrière de ta tour et une connexio
 | 💾 **Export CSV** | Exporte tes positions notées pour les comparer |
 | 📌 **Premier plan** | La fenêtre reste au-dessus des autres pendant les essais |
 | 🔁 **Mémoire du réseau** | Le dernier réseau choisi est retenu au prochain lancement |
+| 🧪 **Test d'orientation guidé** | Fait passer les antennes par 5 orientations types (+ tes positions perso), mesure chacune sur 6 scans, classe les résultats et dit si l'écart est **réel ou juste du bruit** |
+| 💡 **Conseils & diagnostic en direct** | Détecte le brouillage sur le canal de ta borne (ex. un partage de connexion), la meilleure bande (2,4 / 5 GHz), les sauts entre bornes, une connexion accrochée à une borne faible, un canal saturé… et liste ce qui améliore vraiment la réception |
 
 ## ⬇️ Installation
 
@@ -62,6 +64,19 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Install   # + installe et 
 - Antennes **verticales**, le plus **haut** possible, sans métal (boîtier, bureau) devant.
 - Coupe le partage de connexion de ton téléphone pendant les tests : il peut émettre sur le même canal et fausser les mesures.
 
+## 🧪 Test d'orientation guidé
+
+Bouton **Test d'orientation** en haut à droite :
+
+1. Le dessin montre comment placer les antennes (vu de derrière le PC) : deux verticales, une verticale + une horizontale, en V, parallèles à 45°, deux horizontales.
+2. Place-les, lâche-les, clique sur **Mesurer cette position** : 6 scans (~15 s), le premier est ignoré le temps que tout se stabilise. Un son indique la fin.
+3. Le test passe tout seul à la position suivante. **Ajouter une position** permet de tester autre chose (tour tournée, PC déplacé…).
+4. Le **classement** et le **verdict** indiquent si le gagnant l'est vraiment (écart ≥ 3 dB et supérieur au bruit de mesure), et **Revérifier le gagnant** contrôle que le signal n'a pas simplement varié entre-temps.
+
+## 💡 Conseils & diagnostic en direct
+
+Bouton **Conseils** en haut : à gauche, un diagnostic recalculé à chaque scan (✅ OK, ℹ️ info, ⚠️ à corriger) ; à droite, les solutions qui marchent le mieux (antennes en hauteur, antenne déportée sur câble, adaptateur USB + rallonge, réglages avancés de la carte, économie d'énergie, pilote, Ethernet), avec des raccourcis vers les réglages Wi-Fi de Windows et les propriétés de la carte.
+
 ## 📊 Niveaux de signal
 
 | Signal | Niveau | En pratique |
@@ -88,6 +103,9 @@ powershell -ExecutionPolicy Bypass -File .\build.ps1 -Install   # + installe et 
 | 🌐 **Aucune connexion réseau** | L'application ne contacte aucun serveur : pas de télémétrie, pas de mise à jour automatique, pas de publicité. |
 | 👤 **Aucune donnée personnelle collectée** | Seul le nom du dernier réseau choisi est enregistré localement (`%APPDATA%\WifiAntennes\reseau.txt`). Les positions notées restent en mémoire, sauf si tu les exportes toi-même en CSV. |
 | 🛡️ **Droits standard** | Pas de droits administrateur demandés, aucune modification de la configuration Wi-Fi ou du système : lecture seule. |
+| 🧩 **Anti DLL hijacking** | Les DLL natives ne sont chargées que depuis `System32` (jamais depuis le dossier de l'exe, par ex. *Téléchargements*). |
+| 📄 **Export CSV protégé** | Les noms de réseaux (choisis par n'importe qui à portée) sont neutralisés contre l'injection de formules Excel. |
+| 🧱 **Lecture mémoire bornée** | Les données renvoyées par l'API Wi-Fi sont lues sans jamais dépasser la taille annoncée par Windows. |
 | 📦 **Zéro dépendance** | Un seul fichier source, compilable avec le compilateur intégré à Windows : rien à télécharger, rien à faire confiance en plus. |
 
 **Vérifier l'exe téléchargé** : compare son empreinte avec celle indiquée dans la release :
